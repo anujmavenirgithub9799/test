@@ -1,0 +1,96 @@
+= jFrog Artifactory-based
+
+image::install-guide.png[]
+
+== uninstall
+if we need to do a clean install, use the below script to delete all the existing components before we start the installation,
+....
+wget https://artifactory.mavenir.com:443/artifactory/ngn-mwpcicd-dev/RELEASE-2.4.5/platform-uninstall.sh --user shaik.zillani@mavenir.com --ask-password
+chmod +x platform-uninstall.sh
+./platform-uninstall.sh
+....
+
+== update namespace label
+Update Namespace label to k8s.twr.io/imageswap: "enabled" for mavenir-platform namespace
+....
+kubectl label namespaces mavenir-platform k8s.twr.io/imageswap=enabled
+....
+
+== Update node labels
+Update node labels to node-role.kubernetes.io/cicd: "true" for all worker nodes,
+....
+kubectl label nodes <node-name> node-role.kubernetes.io/cicd=true
+....
+
+== Installation
+Install using the configuration,  highly-available.yaml
+Download all binaries & config files,
+....
+wget https://artifactory.mavenir.com:443/artifactory/ngn-mwpcicd-dev/RELEASE-2.4.5/environment-files.tgz --user shaik.zillani@mavenir.com --ask-password
+ 
+wget https://artifactory.mavenir.com:443/artifactory/ngn-mwpcicd-dev/RELEASE-2.4.5/mavenir-config-2.4.5.tgz --user shaik.zillani@mavenir.com --ask-password
+ 
+ 
+To download yala binary..
+--------------------------
+wget --no-check-certificate https://artifactory.mavenir.com:443/artifactory/ngn-mwpcicd-dev/RELEASE-2.4.5/bin/yala-2.4.5-build-linux-amd64 --user shaik.zillani@mavenir.com --ask-password
+....
+
+Once the above files are downloaded, please run the below commands.
+....
+
+tar -xvf environment-files.tgz
+tar -xvf mavenir-config-2.4.5.tgz
+mv yala-2.4.5-build-linux-amd64 yala
+chmod +x yala
+mv yala /usr/local/bin
+....
+
+Update jFrog artifactory credentials in, environment-files/setups/ highly-available.yaml, this will create a secret which gives access to the deployment to download from the artifactory
+
+....
+targetRegistryCredentials:
+  registry: "artifactory.mavenir.com"
+  project: "ngn-mwpcicd-docker-dev"
+  username: ""
+  password: ""
+....
+
+=== Update mavenir-config (yalaconfig.yaml)
+Update mavenir-config path in environment-files/yalaconfig.yaml based on where the mavenir-config path is extracted as shown below,
+
+....
+spec:
+  charts:
+    - name: "mc"
+      path: "/root/cicd/mavenir-config/"
+      # valuesFile: "setups/dedicated-dbs.yaml"
+      # valuesFile: "setups/registry.only.yaml"
+      # valuesFile: "setups/highly-available.yaml"
+      valuesFile: "setups/single-db.yaml"
+....
+
+Begin installation by selecting the configuration,  highly-available.yaml
+
+....
+Uncomment the  highly-available.yaml file in yalaconfig.yaml file (environmentfiles/yalaconfig.yaml) and comment the line registry.only.yaml
+ 
+add the worker node IPs for the current cluster in  highly-available.yaml under traefik section
+service:
+  externalIPs:
+  - 10.69.74.153 (this is an example, please put the current cluster worker node IP)
+ 
+cd environmentfiles
+yala apply -f yalaconfig.yaml
+ 
+or using helm command
+ 
+helm install mc --namespace=mavenir-platform ../mavenir-config-2.4.5.tgz  -f setups/highly-available.yaml
+....
+
+== MinIO Operator
+....
+For Login to Minio Console we need JWT Token, to generate use the below command
+ 
+kubectl get secret $(kubectl get serviceaccount console-sa --namespace mavenir-platform -o jsonpath="{.secrets[0].name}") --namespace mavenir-platform -o jsonpath="{.data.token}" | base64 --decode
+....

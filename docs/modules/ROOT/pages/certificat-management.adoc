@@ -1,0 +1,58 @@
+== Certificate Management
+
+=== Bring your own CA
+
+* create a secret in the mavenir platform namespace called "ca-key-pair" with  tls.crt and tlrs.key with the root CA
+* in the environment-files/setups/highly-available.yaml disable: global.ingress.generateca, set it to false
+
+=== Bring you own ssl certificates
+
+* in the environment-files/value.yaml disable: global.ingress.annotations.kubernetes.io/tls-acme, set it to false
+* replace the domain section in the secret name based on the environment file (ex. highly-available.yaml) 
+* change the anchor value in the environmentfiles/setups/highly-available.file yaml as stated below
+
+   - gitea.mgmt1.mwp-mavenir.local to gitea.bellabcdd01.mwp.t-mobile.lab 
+
+* we can do all the domain changes if required
+
+        - gitea: &giteadomain gitea.mgmt1.mwp-mavenir.local
+
+        - argocd: &argocddomain argocd.mgmt1.mwp-mavenir.local
+
+        - drone: &dronedomain drone.mgmt1.mwp-mavenir.local
+
+        - harbor: &harbordomain harbor.mgmt1.mwp-mavenir.local
+
+        - notary: &notarydomain notary.mgmt1.mwp-mavenir.local
+ 
+        - workflowsdomain: &workflowsdomain workflows.mgmt1.mwp-mavenir.local
+
+        - miniodomain: &miniodomain minio.mgmt1.mwp-mavenir.local
+
+Note: There's an exception to the naming rule convention with this application keycloak, we need to add 
+      -tls at the end of the secrent name on the environment-files/setups/highly-availble.yaml as stated below
+
+....
+keycloak:
+  existingSecret: "keycloak.mgmt1.mwp-mavenir.local-tls"
+....
+
+
+=== Use a Cert-manager cluster issuer to use public pki
+
+* the cicd platform already has 2 cluster issuers you can use, a rootca based issuer "ca-clusterissuer" and a selfsigned issuer "selfsigned-issuer", if another one is required
+* create a ClusterIssuer in the mavenir platform namespace with the required configuration
+* in the environment-files/value.yaml global.ingress.annotations.cert-manager.io/cluster-issuer, put the name of your ClusterIsuer
+
+=== Disabling cert-manager
+
+==== Pre-installation
+
+* in the environment-files/setups/highly-available.yaml disable: certManager.enabled, set it to false
+
+==== Post-installation
+
+* in gitea, mwp/argocd/config/mavenir-core.yaml, disable: certManager.enabled, set it to false
+
+
+

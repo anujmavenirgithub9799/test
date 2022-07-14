@@ -1,0 +1,31 @@
+= Gitops deployment for PAAS
+
+Install paas using centralized argocd to targeted clusters. This repo will have deployment configuration and deployment strategies defined.
+
+https://at.mavenir.com/bb/scm/mwppaas/paas-gitops-configs.git
+
+== Adding cluster using argoCLI
+
+we need to add the target cluster on to centralized argocd (in this case, argocd-buildinfra.mwp-mavenir.com) we can add cluster using using the script below, we just need to pass the following arguments,
+
+- copy the script argo_automate.sh from this rep (https://at.mavenir.com/bb/scm/mwppaas/paas-gitops-configs.git)
+- run this command to add the target cluster 
+
+    
+    ./argo_automate.sh -h argocd-buildinfra.mwp-mavenir.com -c default-context -k /root/cluster-config/config
+
+    h -> argocd host server (host in the sense, the centralized argocd server)
+    c -> context of target cluster
+    k -> kubeconfig of target cluster
+
+== Tenant Application onboarding
+
+. git clone http://gitea.mgmt1.mwp-mavenir.local/mwp/argocd.git
+. Edit the mavenir-core.yaml under config folder on this repo
+. make it tenants: enable: true
+. push the changes to this repo and we can see tenant provisioner visible in argocd console.
+. copy the application folder under manifest folder in tenant repo. (http://gitea.mgmt1.mwp-mavenir.local/mwp/tenants.git)
+. change the destination server as target cluster and ensure that using the correct chart repo path in application.yaml file.
+. project should be tenants in application yaml file project: tenants
+. push the changes to this repo.
+. we can able to see the applications in argocd console.

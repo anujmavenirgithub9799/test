@@ -1,0 +1,5 @@
+* xref:index.adoc[Overview]
+* xref:release-2.4.5-notes.adoc[Release Notes
+* xref:release-2.4.5-installation.adoc[Installation]
+* xref:certificat-management.adoc[Certificat-Management]
+* xref:gitea_lfs_guide.adoc[Gitea-LFS-Guide]

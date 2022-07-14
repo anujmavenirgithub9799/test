@@ -1,0 +1,83 @@
+= Troubleshooting
+
+== cleanup
+
+use the platform-uninstall script to do a full clean-up.
+
+....
+wget --no-check-certificate https://artifactory.mavenir.com:443/artifactory/ngn-mwpcicd-dev/RELEASE-2.4.0/bin/platform-uninstall.sh --user shaik.zillani@mavenir.com --ask-password
+chmod +x platform-uninstall.sh
+./platform-uninstall.sh
+....
+
+== imageswap error
+
+often image pull backoff occurs due to incorrect image tagged from image swapper, this can be correct by adjusting the cm, imageswap-map. verify & make sure the below, swapping-regex is used. 
+
+....
+apiVersion: v1
+data:
+maps: |
+default|artifactory.mavenir.com/ngn-mwpcicd-docker-dev
+artifactory.mavenir.com|
+....
+
+== persist coredns records
+
+....
+Login to DU UI with fqdn (airctl-1.pf9.localnet)
+The simple and easy way to get the DU_FQDN, PROJECT_ID and CLUDER_UUID information is by login to the Management Plane using UI and Select Infrastructure tab and on-page right-click and click Inspect,
+Select Network tab and you can see the API calls which contains the project UUID, Cluster_UUID
+once we get these details we can validate with the curl command
+- du fqdn, project_id, cluster_uuid
+curl -X GET -H "X-Auth-Token: $TOKEN" https://<DU_FQDN>/qbert/v4/<PROJECT_ID>/sunpike/apis/sunpike.platform9.com/v1alpha2/namespaces/default/clusteraddons/<CLUSTER_UUID>-coredns
+added token as env variable, replace the du fqdn, project_id, cluster_uuid
+We need to encode the custom dns entry which we need to add in coredns config map
+create a new coredns.json file and paste below content
+# cat coredns.json
+{
+"apiVersion": "sunpike.platform9.com/v1alpha2",
+"kind": "ClusterAddon",
+"metadata": {
+"labels": {
+"sunpike.pf9.io/cluster": "CLUSTER_UUID",
+"type": "coredns"
+},
+"name": "CLUSTER_UUID-coredns",
+"namespace": "default"
+},
+"spec": {
+"clusterID": "CLUSTER_UUID",
+"override": {
+"params": [
+{
+"name": "dnsMemoryLimit",
+"value": "170Mi"
+},
+{
+"name": "dnsDomain",
+"value": "cluster.local"
+},
+{
+"name": "base64EncAdditionalDnsConfig",
+"value": "<base 64 encoded additional dns config>"
+}
+]
+},
+"type": "coredns",
+"version": "1.7.0",
+"watch": true
+}
+}
+we need to add the base64 encoded value in base64 section on the above file and put the cluster_uuid value as well
+Run the patch command to update the coredns custom dns entries.
+Example command used on titan-demo cluster
+curl -k -X PATCH -H "X-Auth-Token: $TOKEN" -H "Content-Type: application/merge-patch+json" -H "Accept: application/json" -d "@coredns.json" https://airctl-1.pf9.localnet/qbert/v4/7b50f5ada4f241ae92090a1ae70d8e71/sunpike/apis/sunpike.platform9.com/v1alpha2/namespaces/default/clusteraddons/989650cc-5f7d-4037-a6ae-4eed9471a614-coredns
+We will be able to see the custom dns entries after few minutes.
+....
+
+== argocd get initial admin password
+
+....
+kubectl -n mavenir-platform get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+....

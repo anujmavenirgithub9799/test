@@ -1,0 +1,117 @@
+= Local Registry-based
+
+image::newflow-cicd.PNG[]
+
+. Download all binaries and bundle files required from mavenir artifactory. 
+. Load all docker images using yala docker load command
+. Bring up registry service & use kubefwd to registry:5000 and push images to the local registry using yala docker push command
+. Install cicd using yala apply command 
+
+== Download binaries & bundle
+
+Create an install directory, 
+
+....
+mkdir -p install-cicd/base
+cd install-cicd/base
+....
+
+Download all binaries and bundle file which contains all docker-images, on to the server.
+
+....
+wget https://artifactory.mavenir.com:443/artifactory/ngn-mwpcicd-dev/RELEASE-2.4.5/environment-files.tgz --user shaik.zillani@mavenir.com --ask-password
+ 
+wget https://artifactory.mavenir.com:443/artifactory/ngn-mwpcicd-dev/RELEASE-2.4.5/mavenir-config-2.4.5.tgz --user shaik.zillani@mavenir.com --ask-password
+ 
+ 
+wget https://artifactory.mavenir.com:443/artifactory/ngn-mwpcicd-dev/RELEASE-2.4.5/bin/yala-2.4.5-build-linux-amd64 --user shaik.zillani@mavenir.com --ask-password
+ 
+wget https://artifactory.mavenir.com:443/artifactory/ngn-mwpcicd-dev/RELEASE-2.4.5/docker-images.txt --user shaik.zillani@mavenir.com --ask-password
+ 
+wget https://artifactory.mavenir.com:443/artifactory/ngn-mwpcicd-dev/RELEASE-2.4.5/bin/kubefwd-1.21 --user shaik.zillani@mavenir.com --ask-password
+ 
+wget https://artifactory.mavenir.com:443/artifactory/ngn-mwpcicd-dev/RELEASE-2.4.5/lib/kubefwd-1.19.0.tar --user shaik.zillani@mavenir.com --ask-password
+ 
+wget https://artifactory.mavenir.com:443/artifactory/ngn-mwpcicd-dev/RELEASE-2.4.5/lib/registry-2-7-1.tar --user shaik.zillani@mavenir.com --ask-password
+ 
+wget https://artifactory.mavenir.com:443/artifactory/ngn-mwpcicd-dev/RELEASE-2.4.5/yala.images.tar --user shaik.zillani@mavenir.com --ask-password
+....
+
+Once the above files are downloaded, please run the below commands.
+
+....
+
+tar -xvf environment-files.tgz
+tar -xvf mavenir-config-2.4.5.tgz
+chmod +x yala
+mv yala /usr/local/bin
+....
+
+== Installing Registry & Kubefwd 
+
+copy registry and kubefwd to all nodes,
+///
+Load registry images on all nodes
+
+....
+docker load -i registry-2-7-1.tar
+docker load -i kubefwd-1.19.0.tar
+....
+
+Uncomment the registry.only.yaml file in yalaconfig.yaml file (environmentfiles/yalaconfig.yaml)
+
+....
+yala apply -f environmentfiles/yalaconfig.yaml
+....
+
+Once registry & kubefwd pods are up and running then we can push all the images to the registry
+
+== Load images
+
+This command helps to load all the images into docker
+
+....
+yala docker load -f environment-files/bundles/base-images.yaml
+OR
+docker load -i yala.images.tar
+....
+
+== Push images
+
+This command helps to push all the images to the installed registry on the cluster. 
+
+....
+
+push:
+    registry: "registry:5000" #"harbor.mwp-mavenir.com/mwpcicd" #
+    auth:
+      username: "admin"
+      password: "Harbor12345"
+....
+
+We need to make sure that it's pointing to the local registry
+
+....
+yala docker push -f yalaconfig.yaml
+....
+
+== Install 
+
+This command helps to install the enabled resources on the cluster.
+
+....
+comment the  highly-available.yaml file in yalaconfig.yaml file (environmentfiles/yalaconfig.yaml) and uncomment the line registry.only.yaml
+ 
+ 
+add the worker node IPs for the current cluster in registry.only.yaml under traefik section
+service:
+  externalIPs:
+  - 10.69.74.153 (this is an example, please put the current cluster worker node IP)
+ 
+cd environmentfiles
+yala apply -f yalaconfig.yaml
+ 
+or using helm command
+ 
+helm install mc --namespace=mavenir-platform ../mavenir-config-2.4.5.tgz  -f setups/registry.only.yaml
+....

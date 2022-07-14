@@ -1,0 +1,23 @@
+= Git LFS User guide
+Git Large File Storage (LFS) its an open source Git extension for versioning large files. It  replaces large files with text pointers inside Git, while storing the file contents on Gitea remote server.
+
+For files larger than 1MB, Git LFS should be enabled.
+
+=== Pre-requisites
+- https://git-lfs.github.com[Download] and install Git LFS on your local machine
+
+=== Follow the steps below to enable and use Git LFS
+- After cloning the gitea repo, initialize the git repository with lfs by running the commands below
+```
+    git lfs install
+
+```
+
+- For Git LFS to know the files to track, run the command below
+```
+    git lfs track "*.<ext>"
+        where **ext** is the extention of the files type. 
+        This command also modifies .gitattributes file
+```
+
+- Please note that if the *'git add'* command is run before Git LFS initiallization, the heavy files will be pushed to the repository

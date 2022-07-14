@@ -1,0 +1,304 @@
+= Overview
+
+* An overview of Continuous Deployment using ArgoCD to install Platform components.
+
+=== Understanding about CICD Installation sequence before we do actual installation
+
+==== Helm preinstall hooks
+  - mavenir-config
+  - cert generator job (creates a certificate authority, a wildecard certificate and the imaswapper certificate and wehookconfigutarion)
+  - imageswap server is installed
+  - gpg generator job, creates the signature and is backed as a secret in the namespace
+
+==== Helm install phase
+  - mavenir-config-prerequistes
+  - kubernetes-secret-generator
+  - gitea
+  - postgres
+  - argocd
+  - mavenir-config
+  - image-pull secret is created
+  - gitea-job (takes care of the repository bootstrapping, mounths the ssh, gpg and certs, generates the gitea token used to setup keycloak)
+  - kubefwd (optional)
+  - registry:5000 (optional)
+
+==== post-install phase
+  - argocd app: self-provisioner (configures argocd using gitops, all conf exists in the mwp/argocd/conf path in gitea)
+  - argocd app: mavenir-core (app of apps, follows the fanout pattern to initialize multiple applications from a central manifest file mwp/argocd/conf/mavenir-core)
+  - argocd root project (restricts the scope for the argocd server apps)
+  - all application addons (installs all enabled applications in environment-files/setups/*.yaml)
+  - cert-manager: issuers-setup (creates a CA and a self signed cluster issuers for certificate generation via cert-manager annotations)
+  - post-installation-job
+  - keycloak setup
+  - cluster secrets persistance
+ 
+
+= Getting started with CICD Platform Installation.
+
+* jFrog Artifactory-based Installation
+* Local registry-based Installation
+
+
+= jFrog Artifactory-based
+
+=== CICD Air-Gapped Installation Procedure on K8s 
+
+* Download Yala binary,mavenir-config.tar & environment-files.tar from Mavenir Artifactory
+* Extract the config files and begin the installation using Yala
+
+=== Uninstall Script
+
+* If we need to do have a clean install, use the below script to delete all the existing components before we start the installation, 
+
+....
+wget https://artifactory.mavenir.com:443/artifactory/ngn-mwpcicd-dev/RELEASE-2.4.5/platform-uninstall.sh --user shaik.zillani@mavenir.com --ask-password
+chmod +x platform-uninstall.sh
+./platform-uninstall.sh
+....
+
+=== Update Namespace label
+
+* Update Namespace label to k8s.twr.io/imageswap: "enabled" for mavenir-platform namespace
+
+....
+kubectl label namespaces mavenir-platform k8s.twr.io/imageswap=enabled
+....
+
+=== Update node labels
+
+* Update node labels to node-role.kubernetes.io/cicd: "true" for all worker nodes,
+
+....
+kubectl label nodes <node-name> node-role.kubernetes.io/cicd=true
+....
+
+
+=== Installation
+
+* Install using the configuration highly-available.yaml 
+
+* Download all binaries & config files,
+
+....
+wget https://artifactory.mavenir.com:443/artifactory/ngn-mwpcicd-dev/RELEASE-2.4.5/environment-files.tgz --user shaik.zillani@mavenir.com --ask-password
+ 
+wget https://artifactory.mavenir.com:443/artifactory/ngn-mwpcicd-dev/RELEASE-2.4.5/mavenir-config-2.4.5.tgz --user shaik.zillani@mavenir.com --ask-password
+ 
+ 
+To download yala binary..
+--------------------------
+wget --no-check-certificate https://artifactory.mavenir.com:443/artifactory/ngn-mwpcicd-dev/RELEASE-2.4.5/bin/yala-2.4.5-build-linux-amd64 --user shaik.zillani@mavenir.com --ask-password
+
+....
+
+* Once the above files are downloaded, please run the below commands.
+
+....
+tar -xvf environment-files.tgz
+tar -xvf mavenir-config-2.4.5.tgz
+mv yala-v2.4.5-build-linux-amd64 yala
+chmod +x yala
+mv yala /usr/local/bi
+....
+
+* Update jFrog artifactory credentials in, environment-files/setups/ highly-available.yaml, this will create a secret which gives access to the deployment to download from the artifactory
+
+....
+targetRegistryCredentials:
+  registry: "artifactory.mavenir.com"
+  project: "ngn-mwpcicd-docker-dev"
+  username: ""
+  password: ""
+....
+
+=== Update mavenir-config
+
+* Update mavenir-config path based on where the mavenir-config path is extracted as shown below,
+
+....
+spec:
+  charts:
+    - name: "mc"
+      path: "/root/cicd/mavenir-config/"
+      # valuesFile: "setups/dedicated-dbs.yaml"
+      # valuesFile: "setups/registry.only.yaml"
+      # valuesFile: "setups/highly-available.yaml"
+      valuesFile: "setups/single-db.yaml"
+....
+
+* Begin installation by selecting the configuration,  highly-available.yaml
+
+....
+Uncomment the  highly-available.yaml file in yalaconfig.yaml file (environmentfiles/yalaconfig.yaml) and comment the line registry.only.yaml
+ 
+add the worker node IPs for the current cluster in  highly-available.yaml under traefik section
+service:
+  externalIPs:
+  - 10.69.74.153 (this is an example, please put the current cluster worker node IP)
+ 
+cd environmentfiles
+yala apply -f yalaconfig.yaml
+ 
+or using helm command
+ 
+helm install mc --namespace=mavenir-platform ../mavenir-config-2.4.5.tgz  -f setups/highly-available.yaml
+....
+
+=== MinIO Operator
+
+....
+For Login to Minio Console we need JWT Token, to generate use the below command
+ 
+kubectl get secret $(kubectl get serviceaccount console-sa --namespace mavenir-platform -o jsonpath="{.secrets[0].name}") --namespace mavenir-platform -o jsonpath="{.data.token}" | base64 --decode
+....
+
+
+= Local Registry-based
+
+* Download all binaries and bundle files required from mavenir artifactory.
+* Load all docker images using yala docker load command
+* Bring up registry service & use kubefwd to registry:5000 and push images to the local registry using yala docker push command
+* Install cicd using yala apply command 
+
+=== Download binaries & bundle
+
+* Create an install directory, 
+
+....
+mkdir -p install-cicd/base
+cd install-cicd/base
+....
+
+* Download all binaries and bundle file which contains all docker-images, on to the server.
+
+....
+wget https://artifactory.mavenir.com:443/artifactory/ngn-mwpcicd-dev/RELEASE-2.4.5/environment-files.tgz --user shaik.zillani@mavenir.com --ask-password
+ 
+wget https://artifactory.mavenir.com:443/artifactory/ngn-mwpcicd-dev/RELEASE-2.4.5/mavenir-config-2.4.5.tgz --user shaik.zillani@mavenir.com --ask-password
+ 
+ 
+wget https://artifactory.mavenir.com:443/artifactory/ngn-mwpcicd-dev/RELEASE-2.4.5/bin/yala-2.4.5-build-linux-amd64 --user shaik.zillani@mavenir.com --ask-password
+ 
+wget https://artifactory.mavenir.com:443/artifactory/ngn-mwpcicd-dev/RELEASE-2.4.5/docker-images.txt --user shaik.zillani@mavenir.com --ask-password
+ 
+wget https://artifactory.mavenir.com:443/artifactory/ngn-mwpcicd-dev/RELEASE-2.4.5/bin/kubefwd-1.21 --user shaik.zillani@mavenir.com --ask-password
+ 
+wget https://artifactory.mavenir.com:443/artifactory/ngn-mwpcicd-dev/RELEASE-2.4.5/lib/kubefwd-1.19.0.tar --user shaik.zillani@mavenir.com --ask-password
+ 
+wget https://artifactory.mavenir.com:443/artifactory/ngn-mwpcicd-dev/RELEASE-2.4.5/lib/registry-2-7-1.tar --user shaik.zillani@mavenir.com --ask-password
+ 
+wget https://artifactory.mavenir.com:443/artifactory/ngn-mwpcicd-dev/RELEASE-2.4.5/yala.images.tar --user shaik.zillani@mavenir.com --ask-password
+....
+
+* Once the above files are downloaded, please run the below commands.
+
+....
+tar -xvf environment-files.tgz
+tar -xvf mavenir-config-2.4.5.tgz
+chmod +x yala
+mv yala /usr/local/bin
+....
+
+=== Installing Registry & Kubefwd 
+
+* copy registry and kubefwd to all nodes,
+* Load registry images on all nodes
+
+....
+docker load -i registry-2-7-1.tar
+docker load -i kubefwd-1.19.0.tar
+....
+
+* Uncomment the registry.only.yaml file in yalaconfig.yaml file (environmentfiles/yalaconfig.yaml)
+
+....
+yala apply -f environmentfiles/yalaconfig.yaml
+....
+
+* Once registry & kubefwd pods are up and running then we can push all the images to the registry
+
+=== Load images
+
+* This command helps to load all the images into docker
+
+....
+yala docker load -f environment-files/bundles/base-images.yaml
+OR
+docker load -i yala.images.tar
+....
+
+=== Push images
+
+* This command helps to push all the images to the installed registry on the cluster. 
+
+....
+push:
+    registry: "registry:5000" #"harbor.mwp-mavenir.com/mwpcicd" #
+    auth:
+      username: "admin"
+      password: "Harbor12345"
+....
+
+* We need to make sure that it's pointing to the local registry
+
+....
+yala docker push -f yalaconfig.yaml
+....
+
+=== Installation
+
+* This command helps to install the enabled resources on the cluster.
+
+....
+comment the  highly-available.yaml file in yalaconfig.yaml file (environmentfiles/yalaconfig.yaml) and uncomment the line registry.only.yaml
+ 
+ 
+add the worker node IPs for the current cluster in registry.only.yaml under traefik section
+service:
+  externalIPs:
+  - 10.69.74.153 (this is an example, please put the current cluster worker node IP)
+ 
+cd environmentfiles
+yala apply -f yalaconfig.yaml
+ 
+or using helm command
+ 
+helm install mc --namespace=mavenir-platform ../mavenir-config-2.4.5.tgz  -f setups/registry.only.yaml
+....
+
+
+= Gitops deployment for PAAS
+
+* Install paas using centralized argocd to targeted clusters. This repo will have deployment configuration and deployment strategies defined.
+
+https://at.mavenir.com/bb/scm/mwppaas/paas-gitops-configs.git
+
+
+=== Adding cluster using argoCLI
+
+* we need to add the target cluster on to centralized argocd (in this case, argocd-buildinfra.mwp-mavenir.com) we can add cluster using using the script below, we just need to pass the following arguments,
+* copy the script argo_automate.sh from this rep (https://at.mavenir.com/bb/scm/mwppaas/paas-gitops-configs.git)
+* run this command to add the target cluster 
+
+....
+./argo_automate.sh -h argocd-buildinfra.mwp-mavenir.com -c default-context -k /root/cluster-config/config
+h -> argocd host server (host in the sense, the centralized argocd server)
+c -> context of target cluster
+k -> kubeconfig of target cluster
+....
+
+= Tenant Application onboarding
+
+* git clone http://gitea.mgmt1.mwp-mavenir.local/mwp/argocd.git
+* Edit the mavenir-core.yaml under config folder on this repo
+* make it tenants: enable: true
+* push the changes to this repo and we can see tenant provisioner visible in argocd console.
+* copy the application folder under manifest folder in tenant repo. (http://gitea.mgmt1.mwp-mavenir.local/mwp/tenants.git)
+* change the destination server as target cluster and ensure that using the correct chart repo path in application.yaml file.
+* project should be tenants in application yaml file project: tenants
+* push the changes to this repo.
+* we can able to see the applications in argocd console.
+
+= Troubleshooting
+
+* In Argocd we are not able to Sync or delete the applications due to permissions, so we need to login through keycloak and then do the actions, in which we can perform delete, sync, etc.

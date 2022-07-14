@@ -1,0 +1,16 @@
+.Installation
+***** xref:jfrogArtifactory-based.adoc[jFrog Artifactory-based]
+***** xref:localRegistry-based.adoc[Local Registry-based]
+***** xref:gitOpsDeploymentForPass.adoc[Gitops deployment for PAAS]
+
+.Customizations
+***** xref:cicdCustomizations-password.adoc[password]
+
+.Troubleshooting
+***** xref:troubleshooting.adoc[Troubleshooting]
+
+.yala
+***** xref:yala.adoc[yala]
+
+.CICD Architecture
+***** xref:cicdArchitecture.adoc[CICD Architecture]

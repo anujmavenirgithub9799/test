@@ -1,0 +1,74 @@
+= yala 2.4.5
+
+== About
+
+Yala CLI is a utility to manage docker images for offline & online environments, using Yala images can be pulled, pushed, tarred, scanned & singed easily.
+
+== Yala docker bundle for Offline environments
+
+For offline environments where we don't have access to the internet or any registry, loading all the images manually can be hectic, to overcome this manual process of loading images, we introduced Yala CLI which makes loading & pushing images easier. 
+
+== Yala Pull Push Model
+
+=== Pull & Build images
+
+pull or build the images or do both based on the requirement, 
+
+....
+yala docker pull -f environment-files/setups/single-db.yaml
+yala docker build -f environment-files/setups/single-db.yaml
+....
+
+=== Creating the bundle
+
+Update the path to any desired location & make sure that the path provided is an absolute path, (windows users need to use \\ (example: D:\\workspace\\.images))
+
+....
+
+# While loading images, use absolute path only & yala can be run from any location, while loading.
+# yala docker load -f ../environment-files/bundle/<file>.yaml
+bundle:
+  path: ".images"
+  name: "yala.images.tar"
+....
+
+This command will produce a tar of all the images we pulled & build
+
+....
+yala docker save -f environment-files/setups/single-db.yaml
+....
+
+=== Load all the images,
+
+windows users needs to update with \\ (example: D:\\workspace\\.images) & always provide absolute path. 
+
+....
+# While loading images, use absolute path only & yala can be run from any location, while loading.
+# yala docker load -f ../environment-files/bundle/<file>.yaml
+bundle:
+  path: ".images"
+  name: "yala.images.tar"
+....
+
+load command will load all the images from the tar file to the local registry the list of the images loaded will be present in the docker-images.txt file under the .images directory
+
+....
+yala docker load -f environment-files/setups/single-db.yaml
+....
+
+=== Push the images to a registry
+
+update the registry & provide credentials under the config file (single-db.yaml or equivalent file)
+
+....
+
+push:
+  registry: "artifactory.mavenir.com/ngn-mwpcicd-docker-dev"
+  auth:
+    username: ""
+    password: ""
+....
+
+....
+yala docker push -f environment-files/setups/single-db.yaml
+....

@@ -1,0 +1,18 @@
+= Release notes
+
+== Highlights
+
+* Update gitea prune propagation-policy to foreground
+* Apply the policy to only out of sync resources in gitea
+* Able to Update Argocd Password via overrides
+* Enable gitea LFS
+* Update branch protection for all gitea users
+* persists all mavenir-platform script generated secrets
+
+
+== Enhancements & Fixes
+
+* update gitea script auth via header
+* fix imageswap config for registry-based install
+
+
