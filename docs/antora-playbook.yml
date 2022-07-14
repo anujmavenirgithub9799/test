@@ -2,7 +2,7 @@ site:
   title: MWP-CICD-DOC-SITE
   start_page: modules::pages::index.adoc
 content:
-  branches: [main,release2.4.5,release2.4.6,release2.4.7]
+  branches: [release2.4.5,release2.4.6,release2.4.7]
   sources:
   - url: https://github.com/anujmavenirgithub9799/test.git
     start_path: docs
