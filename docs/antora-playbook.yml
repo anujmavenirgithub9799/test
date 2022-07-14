@@ -3,7 +3,7 @@ site:
   start_page: modules::pages::index.adoc
 content:
   sources:
-  - url: ../
+  - url: https://github.com/anujmavenirgithub9799/test.git
     start_path: docs
 ui:
   bundle:
