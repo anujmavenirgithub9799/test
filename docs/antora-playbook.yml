@@ -1,9 +1,10 @@
 site:
   title: MWP-CICD-DOC-SITE
-  start_page: modules::pages::index.adoc
+  start_page: modules::pages::jfrogArtifactory-based.adoc
 content:
+  branches: [main,release2.4.5]
   sources:
-  - url: ../
+  - url: https://github.com/anujmavenirgithub9799/test.git
     start_path: docs
 ui:
   bundle:

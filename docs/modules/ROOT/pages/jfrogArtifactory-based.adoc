@@ -1,4 +1,4 @@
-= jFrog Artifactory-based
+= jFrog Artifactory-based 2.4.5
 
 image::install-guide.png[]
 
