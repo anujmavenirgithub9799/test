@@ -1,6 +1,6 @@
 site:
   title: MWP-CICD-DOC-SITE
-  start_page: modules::pages::jfrogArtifactory-based.adoc
+  start_page: modules::pages::jfrogArtifactory-based.html
 content:
   branches: [main,release2.4.5]
   sources:
